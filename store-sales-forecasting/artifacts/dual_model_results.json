@@ -1,0 +1,16 @@
+{
+    "SVR": {
+        "MSE": 475.8849,
+        "MAE": 16.0776,
+        "R2": 0.7384,
+        "Training_Time_Seconds": 71.48,
+        "Training_Samples": 23392
+    },
+    "LightGBM": {
+        "MSE": 373.2752,
+        "MAE": 14.5739,
+        "R2": 0.7948,
+        "Training_Time_Seconds": 0.35,
+        "Training_Samples": 23392
+    }
+}

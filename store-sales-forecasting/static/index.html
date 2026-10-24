@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Day-to-day sales forecasting assistant for newspaper and magazine sellers.">
+    <title>Nexus Forecast | Daily Sales Assistant</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="blob-c">
+        <div class="blob"></div>
+        <div class="blob blob-2"></div>
+        <div class="blob blob-3"></div>
+    </div>
+
+    <div class="dashboard">
+        <header>
+            <div class="logo">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="url(#paint0_linear)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M2 17L12 22L22 17" stroke="url(#paint1_linear)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M2 12L12 17L22 12" stroke="url(#paint2_linear)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <defs>
+                        <linearGradient id="paint0_linear" x1="2" y1="2" x2="22" y2="12" gradientUnits="userSpaceOnUse">
+                            <stop stop-color="#00F0FF"/>
+                            <stop offset="1" stop-color="#5773FF"/>
+                        </linearGradient>
+                        <linearGradient id="paint1_linear" x1="2" y1="17" x2="22" y2="22" gradientUnits="userSpaceOnUse">
+                            <stop stop-color="#FF0076"/>
+                            <stop offset="1" stop-color="#590FB7"/>
+                        </linearGradient>
+                        <linearGradient id="paint2_linear" x1="2" y1="12" x2="22" y2="17" gradientUnits="userSpaceOnUse">
+                            <stop stop-color="#00F0FF"/>
+                            <stop offset="1" stop-color="#FF0076"/>
+                        </linearGradient>
+                    </defs>
+                </svg>
+                <h1>Nexus Forecast</h1>
+            </div>
+            <p>Pick a day &mdash; get your sales forecast. The rest is figured out for you.</p>
+        </header>
+
+        <main>
+            <section class="glass-panel form-panel">
+                <h2 class="panel-title">Plan a day</h2>
+                <div class="form-grid">
+                    <div class="input-group">
+                        <label for="target_date">Which day?</label>
+                        <input type="date" id="target_date" required>
+                    </div>
+
+                    <div class="input-group">
+                        <label for="model_type">Forecasting model</label>
+                        <select id="model_type">
+                            <option value="lgbm" selected>LightGBM (recommended)</option>
+                            <option value="svr">SVR</option>
+                        </select>
+                    </div>
+
+                    <div class="input-group">
+                        <label for="publication_name">Publication</label>
+                        <input type="text" id="publication_name" value="The Daily News" required>
+                    </div>
+
+                    <div class="input-group">
+                        <label for="publication_category">Category</label>
+                        <select id="publication_category">
+                            <option value="News" selected>News</option>
+                            <option value="Technology">Technology</option>
+                            <option value="Business">Business</option>
+                            <option value="Sports">Sports</option>
+                            <option value="Fashion">Fashion</option>
+                        </select>
+                    </div>
+
+                    <div class="input-group">
+                        <label for="region">Region</label>
+                        <select id="region">
+                            <option value="North" selected>North</option>
+                            <option value="South">South</option>
+                            <option value="East">East</option>
+                            <option value="West">West</option>
+                        </select>
+                    </div>
+
+                    <div class="input-group">
+                        <label for="promotion">Running a promotion?</label>
+                        <select id="promotion">
+                            <option value="0" selected>No</option>
+                            <option value="1">Yes (Discount/Sale)</option>
+                        </select>
+                    </div>
+
+                    <div class="input-group">
+                        <label for="special_events">Special event that day</label>
+                        <select id="special_events">
+                            <option value="None" selected>None</option>
+                            <option value="Election Day">Election Day</option>
+                            <option value="Local Fair">Local Fair</option>
+                            <option value="Sports Final">Sports Final</option>
+                            <option value="Mega Sale">Mega Sale</option>
+                            <option value="Cultural Fest">Cultural Fest</option>
+                        </select>
+                    </div>
+                </div>
+
+                <details class="advanced">
+                    <summary>Audience &amp; pricing <span class="hint">(optional &mdash; sensible defaults used)</span></summary>
+                    <div class="form-grid">
+                        <div class="input-group">
+                            <label for="price">Price ($)</label>
+                            <input type="number" step="0.1" id="price" value="5.0">
+                        </div>
+                        <div class="input-group">
+                            <label for="customer_age">Primary target age</label>
+                            <input type="number" id="customer_age" min="18" max="75" value="35">
+                        </div>
+                        <div class="input-group">
+                            <label for="income_level">Income level</label>
+                            <select id="income_level">
+                                <option value="Low">Low</option>
+                                <option value="Medium" selected>Medium</option>
+                                <option value="High">High</option>
+                            </select>
+                        </div>
+                        <div class="input-group">
+                            <label for="educational_background">Education</label>
+                            <select id="educational_background">
+                                <option value="High School">High School</option>
+                                <option value="Bachelor" selected>Bachelor</option>
+                                <option value="Master">Master</option>
+                                <option value="PhD">PhD</option>
+                            </select>
+                        </div>
+                        <div class="input-group">
+                            <label for="occupation">Occupation</label>
+                            <select id="occupation">
+                                <option value="Student">Student</option>
+                                <option value="Professional" selected>Professional</option>
+                                <option value="Business">Business</option>
+                                <option value="Retired">Retired</option>
+                            </select>
+                        </div>
+                    </div>
+                </details>
+
+                <div class="action-buttons">
+                    <button type="button" id="forecast-btn" class="btn primary">
+                        <span>Forecast Sales</span>
+                        <div class="glow"></div>
+                    </button>
+                </div>
+            </section>
+
+            <section class="results-container">
+                <div class="glass-panel result-card" id="forecast-card">
+                    <h3 id="result-title">Your Forecast</h3>
+                    <div class="metric">
+                        <span class="value" id="forecast-value">--</span>
+                        <span class="label" id="forecast-label">copies &mdash; pick a day &amp; forecast</span>
+                    </div>
+                    <div id="detected" class="detected" style="display:none;">
+                        <div class="badges" id="badges"></div>
+                        <p class="basis" id="basis"></p>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <section class="glass-panel record-panel">
+            <h2 class="panel-title">Sold today? Teach the model</h2>
+            <p class="panel-sub">Log the real sales for a day and both models retrain on it &mdash; the next forecast is smarter.</p>
+            <div class="record-grid">
+                <div class="input-group">
+                    <label for="record_date">Day sold</label>
+                    <input type="date" id="record_date" required>
+                </div>
+                <div class="input-group">
+                    <label for="actual_sales">Copies actually sold</label>
+                    <input type="number" id="actual_sales" min="0" value="700" required>
+                </div>
+                <button type="button" class="btn secondary" id="record-btn">
+                    <span>Save &amp; retrain</span>
+                    <div class="glow"></div>
+                </button>
+            </div>
+            <p class="record-status" id="record-status"></p>
+        </section>
+    </div>
+    <script src="/static/script.js?v=3"></script>
+</body>
+</html>

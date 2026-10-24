@@ -1,0 +1,5 @@
+# Dev/test-only dependencies (not needed to serve the API).
+# Install with:  pip install -r requirements-dev.txt
+-r requirements-dual.txt
+pytest==8.3.4
+httpx==0.28.1

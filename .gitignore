@@ -1,0 +1,55 @@
+# Dependencies
+node_modules/
+*/node_modules/
+*/*/node_modules/
+
+# Python Virtual Environments
+*venv/
+*/ml_venv/
+*/data_venv/
+*/pdf_venv/
+*/.venv/
+.venv/
+ml_venv/
+
+# Python Cache
+__pycache__/
+*/__pycache__/
+*/*/__pycache__/
+*.py[cod]
+
+# IDE & OS
+.idea/
+*/.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+*.log
+
+# Frontend build output
+dist/
+*/dist/
+
+# Research notebooks & large HTML dashboards (not needed for production)
+store-sales-forecasting/research/
+research/
+*/research/
+
+# Large ML data files (Not used by production dual_app)
+store-sales-forecasting/artifacts/covariates.joblib
+store-sales-forecasting/artifacts/timeseries_data.joblib
+store-sales-forecasting/artifacts/trained_model.joblib
+store-sales-forecasting/artifacts/oil_model.joblib
+store-sales-forecasting/artifacts/X_train.joblib
+store-sales-forecasting/artifacts/X_test.joblib
+store-sales-forecasting/artifacts/y_train.joblib
+store-sales-forecasting/artifacts/y_test.joblib
+
+# DO NOT IGNORE production dual-model artifacts
+!store-sales-forecasting/artifacts/lgbm_model.joblib
+!store-sales-forecasting/artifacts/svr_model.joblib
+!store-sales-forecasting/artifacts/scaler.joblib
+!store-sales-forecasting/artifacts/encoders.joblib
+!store-sales-forecasting/artifacts/feature_names.joblib
+!store-sales-forecasting/artifacts/model_metadata.json
+!store-sales-forecasting/artifacts/synthetic_sales_data.csv

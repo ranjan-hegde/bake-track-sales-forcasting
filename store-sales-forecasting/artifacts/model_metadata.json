@@ -1,0 +1,50 @@
+{
+    "model_version": "3.0.0",
+    "trained_at_utc": "2026-09-07T08:51:28.704452+00:00",
+    "best_model": "LightGBM",
+    "n_features": 18,
+    "feature_names": [
+        "Publication_Name",
+        "Publication_Category",
+        "Region",
+        "Customer_Age",
+        "Income_Level",
+        "Educational_Background",
+        "Occupation",
+        "Season",
+        "Day_of_Week",
+        "Is_Weekend",
+        "Is_Holiday",
+        "Is_Festival",
+        "Festival_Name",
+        "Special_Events",
+        "Promo_Discount",
+        "Price",
+        "Previous_Day_Sales",
+        "Previous_Week_Sales"
+    ],
+    "train_samples": 23392,
+    "test_samples": 5848,
+    "metrics": {
+        "SVR": {
+            "MSE": 475.8849,
+            "MAE": 16.0776,
+            "R2": 0.7384,
+            "Training_Time_Seconds": 71.48,
+            "Training_Samples": 23392
+        },
+        "LightGBM": {
+            "MSE": 373.2752,
+            "MAE": 14.5739,
+            "R2": 0.7948,
+            "Training_Time_Seconds": 0.35,
+            "Training_Samples": 23392
+        }
+    },
+    "library_versions": {
+        "python": "3.14.7",
+        "scikit_learn": "1.9.0",
+        "lightgbm": "4.7.0",
+        "numpy": "2.5.2"
+    }
+}

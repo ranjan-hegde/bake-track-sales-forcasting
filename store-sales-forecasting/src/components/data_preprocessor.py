@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder, StandardScaler
 
+from src.components.config import settings
 from src.components.dual_utils import CustomException, logging
 
 @dataclass
@@ -32,6 +33,22 @@ class DataPreprocessor:
             logging.info(f"Loading data from {self.config.raw_data}")
             df = pd.read_csv(self.config.raw_data)
             logging.info(f"Dataset loaded: {df.shape[0]} rows, {df.shape[1]} columns")
+
+            # Fetch and combine any live sales from MongoDB Atlas if configured
+            if settings.mongo_uri:
+                try:
+                    from pymongo import MongoClient
+                    client = MongoClient(settings.mongo_uri, serverSelectionTimeoutMS=4000)
+                    db = client[settings.mongo_db]
+                    records = list(db[settings.mongo_collection].find({}, {"_id": 0}))
+                    client.close()
+                    if records:
+                        mongo_df = pd.DataFrame(records)
+                        df = pd.concat([df, mongo_df], ignore_index=True)
+                        logging.info("Combined %d live sales from MongoDB Atlas with baseline (total rows: %d)",
+                                     len(records), len(df))
+                except Exception as m_err:
+                    logging.warning("Could not fetch MongoDB sales during preprocessing (falling back to baseline): %s", m_err)
 
             # pandas parses the literal string "None" as NaN on read. In this dataset
             # "None" is a real, meaningful category for Special_Events ("no special event"),

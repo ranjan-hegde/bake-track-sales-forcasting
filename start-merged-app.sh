@@ -83,6 +83,15 @@ else
     exit 1
 fi
 
+# Load MONGO_URI from backend .env so ML service can persist sales to MongoDB Atlas
+BACKEND_DIR="$SCRIPT_DIR/no mercy/shop-backend"
+if [ -f "$BACKEND_DIR/.env" ]; then
+    MONGO_URI_VAL=$(grep -E '^MONGO_URI=' "$BACKEND_DIR/.env" | cut -d '=' -f2-)
+    if [ -n "$MONGO_URI_VAL" ]; then
+        export MONGO_URI="$MONGO_URI_VAL"
+    fi
+fi
+
 echo -e "${GREEN}🤖 Starting ML Forecasting API (port 8000)...${NC}"
 cd "$ML_DIR"
 "$VENV_UVICORN" dual_app:app --host 0.0.0.0 --port 8000 &

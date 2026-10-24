@@ -23,6 +23,9 @@ class Settings:
     log_level: str
     api_host: str
     api_port: int
+    mongo_uri: str
+    mongo_db: str
+    mongo_collection: str
 
     @property
     def svr_model_path(self) -> str:
@@ -60,6 +63,9 @@ def load_settings() -> "Settings":
         log_level=os.getenv("LOG_LEVEL", "INFO").upper(),
         api_host=os.getenv("API_HOST", "0.0.0.0"),
         api_port=int(os.getenv("API_PORT", "8000")),
+        mongo_uri=os.getenv("MONGO_URI", ""),
+        mongo_db=os.getenv("MONGO_DB", "shop"),
+        mongo_collection=os.getenv("MONGO_SALES_COLLECTION", "sales_records"),
     )
 
 

@@ -25,7 +25,7 @@ from src.components.dual_utils import CustomException, logging
 CANONICAL_COLUMNS = [
     "Date", "Publication_Name", "Publication_Category", "Region", "Customer_Age",
     "Income_Level", "Educational_Background", "Occupation", "Season", "Day_of_Week",
-    "Is_Weekend", "Is_Holiday", "Is_Festival", "Festival_Name", "Special_Events", "Promotion", "Price",
+    "Is_Weekend", "Is_Holiday", "Is_Festival", "Festival_Name", "Special_Events", "Promo_Discount", "Price",
     "Previous_Day_Sales", "Previous_Week_Sales", "Sales_Quantity",
 ]
 
@@ -35,6 +35,43 @@ class HistoryLookup:
         self.csv_path = csv_path or settings.dataset_path
         self._load()
 
+    def _fetch_mongo_sales(self) -> pd.DataFrame:
+        """Fetch sales documents from MongoDB Atlas if configured."""
+        if not settings.mongo_uri:
+            return pd.DataFrame()
+        try:
+            from pymongo import MongoClient
+            client = MongoClient(settings.mongo_uri, serverSelectionTimeoutMS=4000)
+            db = client[settings.mongo_db]
+            coll = db[settings.mongo_collection]
+            records = list(coll.find({}, {"_id": 0}))
+            client.close()
+            if records:
+                m_df = pd.DataFrame(records)
+                logging.info("Fetched %d sales records from MongoDB Atlas.", len(m_df))
+                return m_df
+        except Exception as exc:
+            logging.warning("Could not fetch sales from MongoDB Atlas (falling back to local): %s", exc)
+        return pd.DataFrame()
+
+    def _save_mongo_sale(self, row: dict) -> bool:
+        """Save a new sale document to MongoDB Atlas if configured."""
+        if not settings.mongo_uri:
+            return False
+        try:
+            from pymongo import MongoClient
+            client = MongoClient(settings.mongo_uri, serverSelectionTimeoutMS=4000)
+            db = client[settings.mongo_db]
+            coll = db[settings.mongo_collection]
+            doc = {c: row[c] for c in CANONICAL_COLUMNS if c in row}
+            coll.insert_one(doc)
+            client.close()
+            logging.info("Saved sale document to MongoDB Atlas collection '%s'.", settings.mongo_collection)
+            return True
+        except Exception as exc:
+            logging.warning("Could not save sale to MongoDB Atlas: %s", exc)
+            return False
+
     def _load(self):
         if not os.path.exists(self.csv_path):
             raise FileNotFoundError(f"Sales history not found at {self.csv_path}. Generate the dataset first.")
@@ -42,7 +79,23 @@ class HistoryLookup:
         # pandas reads the literal "None" as NaN; restore it (same fix as the preprocessor).
         if "Special_Events" in df.columns:
             df["Special_Events"] = df["Special_Events"].fillna("None")
+        if "Festival_Name" in df.columns:
+            df["Festival_Name"] = df["Festival_Name"].fillna("None")
         df["Date"] = pd.to_datetime(df["Date"])
+
+        # Merge with live sales from MongoDB Atlas if configured
+        mongo_df = self._fetch_mongo_sales()
+        if not mongo_df.empty:
+            if "Date" in mongo_df.columns:
+                mongo_df["Date"] = pd.to_datetime(mongo_df["Date"])
+            if "Special_Events" in mongo_df.columns:
+                mongo_df["Special_Events"] = mongo_df["Special_Events"].fillna("None")
+            if "Festival_Name" in mongo_df.columns:
+                mongo_df["Festival_Name"] = mongo_df["Festival_Name"].fillna("None")
+            df = pd.concat([df, mongo_df], ignore_index=True)
+            logging.info("Combined dataset: %d baseline CSV + %d MongoDB rows = %d total rows",
+                         len(df) - len(mongo_df), len(mongo_df), len(df))
+
         self.df = df
 
     def get_sales_context(self, publication_name: str, region: str, target_date, is_festival: bool) -> dict:
@@ -85,15 +138,24 @@ class HistoryLookup:
             raise CustomException(e)
 
     def append_actual(self, row: dict) -> int:
-        """Append one fully-formed row (all CANONICAL_COLUMNS) and return the new row count."""
+        """Append one fully-formed row (all CANONICAL_COLUMNS) to MongoDB Atlas and CSV."""
         try:
             missing = [c for c in CANONICAL_COLUMNS if c not in row]
             if missing:
                 raise ValueError(f"Row is missing required columns: {missing}")
-            new_df = pd.DataFrame([{c: row[c] for c in CANONICAL_COLUMNS}], columns=CANONICAL_COLUMNS)
-            write_header = not os.path.exists(self.csv_path)
-            new_df.to_csv(self.csv_path, mode="a", header=write_header, index=False)
-            logging.info("Appended a recorded sale to %s", self.csv_path)
+
+            # 1. Persist to MongoDB Atlas (permanent cloud database)
+            self._save_mongo_sale(row)
+
+            # 2. Also append to local CSV file if filesystem is writable
+            try:
+                new_df = pd.DataFrame([{c: row[c] for c in CANONICAL_COLUMNS}], columns=CANONICAL_COLUMNS)
+                write_header = not os.path.exists(self.csv_path)
+                new_df.to_csv(self.csv_path, mode="a", header=write_header, index=False)
+                logging.info("Appended a recorded sale to local CSV %s", self.csv_path)
+            except Exception as io_err:
+                logging.warning("Could not append to local CSV (ignoring in cloud): %s", io_err)
+
             self._load()
             return len(self.df)
         except Exception as e:

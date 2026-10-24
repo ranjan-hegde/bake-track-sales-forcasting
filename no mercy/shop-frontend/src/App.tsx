@@ -242,7 +242,8 @@ const AuthView = ({
                 <p className="mb-1">Developed By:</p>
                 <p> <b className="text-stone-700">Ranjan</b></p>
                 <p> <b className="text-stone-700">Indraj</b></p>
-                <p> <b className="text-stone-700">Darshan</b></p>
+                <p> <b className="text-stone-700">Mallika</b></p>
+                <p> <b className="text-stone-700">Meghana</b></p>
               </div>
             </motion.form>
           ) : (

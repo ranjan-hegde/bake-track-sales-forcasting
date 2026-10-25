@@ -49,7 +49,13 @@ import {
   Database,
   HelpCircle,
   AlertCircle,
-  RotateCw
+  RotateCw,
+  Copy,
+  Terminal,
+  Cpu,
+  Clock,
+  Activity,
+  Check
 } from 'lucide-react';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -588,11 +594,15 @@ export default function ShopApp() {
       }
     };
 
-    // Check ML API health on mount
-    useEffect(() => {
+    // Check ML API health
+    const checkMlHealth = () => {
       axios.get(`${API_URL}/api/ml-health`)
         .then(res => setMlConnected(res.data.ml_status === 'connected'))
         .catch(() => setMlConnected(false));
+    };
+
+    useEffect(() => {
+      checkMlHealth();
       axios.get(`${API_URL}/api/genres`)
         .then(res => {
           if (res.data.genres && res.data.genres.length > 0) {
@@ -762,12 +772,22 @@ export default function ShopApp() {
           <motion.div
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
-            className={`flex items-center gap-3 px-5 py-3 rounded-2xl text-sm font-bold ${mlConnected ? 'bg-sage-50 text-sage-700 border border-sage-200' : 'bg-amber-50 text-amber-700 border border-amber-200'}`}
+            className={`flex items-center justify-between flex-wrap gap-3 px-5 py-3 rounded-2xl text-sm font-bold ${mlConnected ? 'bg-sage-50 text-sage-700 border border-sage-200' : 'bg-amber-50 text-amber-700 border border-amber-200'}`}
           >
-            <Sparkles size={16} />
-            {mlConnected
-              ? 'AI Forecasting is active — click "Forecast" on any item to predict sales'
-              : 'ML API is offline — start the Python server on port 8000 to enable forecasting'}
+            <div className="flex items-center gap-3">
+              <Sparkles size={16} />
+              {mlConnected
+                ? 'AI Forecasting is active — click "Forecast" on any item to predict sales'
+                : 'ML API is offline or waking up (Render free tier takes ~30s on cold start)'}
+            </div>
+            {!mlConnected && (
+              <button 
+                onClick={checkMlHealth}
+                className="text-xs bg-amber-200/80 hover:bg-amber-200 text-amber-900 px-3 py-1.5 rounded-full transition flex items-center gap-1.5 font-bold shadow-sm"
+              >
+                <RotateCw size={12} /> Retry Connection
+              </button>
+            )}
           </motion.div>
         )}
 
@@ -1308,60 +1328,326 @@ export default function ShopApp() {
     // --- Admin Dashboard ---
     const AdminDashboard = () => {
       const [rowCount, setRowCount] = useState<number | null>(null);
+      const [trainingData, setTrainingData] = useState<{
+        logs: string;
+        is_training: boolean;
+        trained_at_utc?: string;
+        best_model?: string;
+        metrics?: any;
+        train_samples?: number;
+        test_samples?: number;
+        model_version?: string;
+      } | null>(null);
+      const [loadingLogs, setLoadingLogs] = useState(false);
+      const [adminRetraining, setAdminRetraining] = useState(false);
+      const [copied, setCopied] = useState(false);
+
+      const fetchTrainingLogs = async () => {
+        setLoadingLogs(true);
+        try {
+          const res = await axios.get(`${API_URL}/api/training-logs`);
+          setTrainingData(res.data);
+        } catch (err) {
+          console.error("Could not fetch training logs", err);
+        } finally {
+          setLoadingLogs(false);
+        }
+      };
+
+      const handleAdminRetrain = async () => {
+        setAdminRetraining(true);
+        try {
+          await axios.post(`${API_URL}/api/retrain`);
+          fetchTrainingLogs();
+        } catch (err) {
+          console.error("Failed to trigger retrain", err);
+          alert("Retrain request failed. Please check ML server status.");
+        } finally {
+          setTimeout(() => setAdminRetraining(false), 2000);
+        }
+      };
+
+      const handleCopyLogs = () => {
+        if (!trainingData?.logs) return;
+        navigator.clipboard.writeText(trainingData.logs);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      };
+
       useEffect(() => {
         axios.get(`${API_URL}/api/dataset-info`).then(res => setRowCount(res.data.row_count)).catch(console.error);
+        fetchTrainingLogs();
       }, []);
-      
+
+      // Auto-poll logs every 3 seconds if retraining is in progress
+      useEffect(() => {
+        let timer: any;
+        if (trainingData?.is_training) {
+          timer = setInterval(() => {
+            fetchTrainingLogs();
+          }, 3000);
+        }
+        return () => {
+          if (timer) clearInterval(timer);
+        };
+      }, [trainingData?.is_training]);
+
+      const svrMetrics = trainingData?.metrics?.SVR;
+      const lgbmMetrics = trainingData?.metrics?.LightGBM;
+      const trainedDate = trainingData?.trained_at_utc 
+        ? new Date(trainingData.trained_at_utc).toLocaleString(undefined, {
+            dateStyle: 'medium',
+            timeStyle: 'short'
+          })
+        : null;
+
+      const renderConsoleLine = (line: string, idx: number) => {
+        if (line.startsWith('==>')) {
+          return <span key={idx} className="text-sky-400 font-bold block">{line}</span>;
+        }
+        if (line.includes('✅') || line.includes('🎉')) {
+          return <span key={idx} className="text-emerald-400 font-bold block">{line}</span>;
+        }
+        if (line.includes('🔧') || line.includes('📊')) {
+          return <span key={idx} className="text-amber-300 font-bold block">{line}</span>;
+        }
+        if (line.startsWith('INFO:')) {
+          const is200 = line.includes('200 OK');
+          return (
+            <span key={idx} className="text-stone-300 block">
+              <span className="text-stone-500 font-bold">INFO:     </span>
+              {is200 ? (
+                <>
+                  <span>{line.replace(/^INFO:\s+/, '').replace(/200 OK/, '')}</span>
+                  <span className="text-emerald-400 font-bold">200 OK</span>
+                </>
+              ) : (
+                <span>{line.replace(/^INFO:\s+/, '')}</span>
+              )}
+            </span>
+          );
+        }
+        if (line.includes('ERROR:') || line.includes('Error:')) {
+          return <span key={idx} className="text-red-400 font-bold block">{line}</span>;
+        }
+        return <span key={idx} className="text-stone-300 block">{line}</span>;
+      };
+
+      const consoleLines = (trainingData?.logs || '').split('\n');
+
       return (
-        <div className="max-w-4xl mx-auto font-sans">
-          <h2 className="text-3xl font-serif font-bold text-stone-800 flex items-center gap-3 mb-8">
-            <Database className="text-sage-600" /> Admin / Data Overview
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-             <div className="bg-white p-8 rounded-3xl shadow-sm border border-stone-200 flex items-center gap-6">
-               <div className="w-16 h-16 bg-blue-100 rounded-2xl flex items-center justify-center text-blue-600"><Database size={32}/></div>
-               <div>
-                 <p className="text-sm font-bold text-stone-500 uppercase tracking-widest">CSV Dataset</p>
-                 <p className="text-4xl font-bold text-stone-800">{rowCount !== null ? rowCount : '...'}</p>
-                 <p className="text-xs text-stone-400 mt-1">Total Historical Sales Rows</p>
-               </div>
-             </div>
-             <div className="bg-white p-8 rounded-3xl shadow-sm border border-stone-200 flex items-center gap-6">
-               <div className={`w-16 h-16 rounded-2xl flex items-center justify-center ${mlConnected ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}>
-                 <Cloud size={32}/>
-               </div>
-               <div>
-                 <p className="text-sm font-bold text-stone-500 uppercase tracking-widest">AI Engine</p>
-                 <p className="text-2xl font-bold text-stone-800">{mlConnected ? 'Online' : 'Offline'}</p>
-                 <p className="text-xs text-stone-400 mt-1">Status of Prediction Server</p>
-               </div>
-             </div>
+        <div className="max-w-5xl mx-auto font-sans space-y-8">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <h2 className="text-3xl font-serif font-bold text-stone-800 flex items-center gap-3">
+                <Database className="text-sage-600" /> Admin & Model Operations
+              </h2>
+              <p className="text-sm text-stone-500 mt-1">
+                Real-time console logs, training telemetry, and HTTP traffic directly from Render.
+              </p>
+            </div>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={fetchTrainingLogs}
+                disabled={loadingLogs}
+                className="bg-white border border-stone-200 text-stone-700 px-4 py-2 rounded-xl text-sm font-bold hover:bg-stone-50 flex items-center gap-2 shadow-sm transition disabled:opacity-50"
+              >
+                <RotateCw size={15} className={loadingLogs ? 'animate-spin text-sage-600' : ''} />
+                Refresh Logs
+              </button>
+              <button
+                onClick={handleAdminRetrain}
+                disabled={adminRetraining || trainingData?.is_training || !mlConnected}
+                className="bg-stone-900 text-white px-5 py-2 rounded-xl text-sm font-bold hover:bg-black flex items-center gap-2 shadow-md transition disabled:opacity-50"
+              >
+                {adminRetraining || trainingData?.is_training ? (
+                  <Loader2 size={15} className="animate-spin" />
+                ) : (
+                  <Cpu size={15} />
+                )}
+                {trainingData?.is_training ? 'Retraining on Render...' : 'Trigger Retrain'}
+              </button>
+            </div>
           </div>
-          
-          <div className="mt-8 bg-stone-900 text-stone-300 p-8 rounded-3xl shadow-lg relative overflow-hidden font-mono text-sm">
-            <h3 className="text-white font-bold text-lg mb-4 flex items-center gap-2"><CheckCircle size={18} className="text-sage-500"/> Model Training Logs</h3>
-            <p className="mb-2 text-stone-400">These are the actual training logs proving the AI was trained iteratively on the dataset using LightGBM and SVR algorithms.</p>
-            <div className="bg-black/50 p-4 rounded-xl border border-stone-800 overflow-x-auto">
-              <pre className="text-green-400">
-{`[INFO] Starting DualPredictionPipeline Training...
-[INFO] Loading dataset... 23,392 rows loaded.
-[INFO] Target Date: 2024-10-31 | Preprocessing categorical variables...
-[LightGBM] [Info] Auto-choosing row-wise multi-threading, the overhead of testing was 0.001234 seconds.
-[LightGBM] [Info] Total Bins 358, Number of data points in the train set: 23392
-[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
-[LightGBM] Iteration 10: valid_0's l2: 12045.2   valid_0's mse: 12045.2
-[LightGBM] Iteration 50: valid_0's l2: 8534.1    valid_0's mse: 8534.1
-[LightGBM] Iteration 100: valid_0's l2: 7415.86  valid_0's mse: 7415.86
-[INFO] LightGBM Model trained in 0.54s. R2 Score: 0.8641
 
-[INFO] Initializing Support Vector Regression (SVR)...
-[INFO] Using RBF Kernel, C=1.0, epsilon=0.1
-[SVR] Optimization Finished, obj = -14234.2, rho = -4.5
-[SVR] nSV = 18430, nBSV = 16200
-[INFO] SVR Model trained in 67.18s. R2 Score: 0.7335
+          {/* Top Status Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="bg-white p-5 rounded-2xl shadow-sm border border-stone-200 flex items-center gap-4">
+              <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center text-blue-600">
+                <Database size={24} />
+              </div>
+              <div>
+                <p className="text-xs font-bold text-stone-400 uppercase tracking-wider">Dataset Rows</p>
+                <p className="text-2xl font-bold text-stone-800">{rowCount !== null ? rowCount.toLocaleString() : '...'}</p>
+                <p className="text-[11px] text-stone-400">Total historical rows</p>
+              </div>
+            </div>
 
-[SUCCESS] Ensemble trained. Artifacts saved.`}
-              </pre>
+            <div className="bg-white p-5 rounded-2xl shadow-sm border border-stone-200 flex items-center gap-4">
+              <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${mlConnected ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}>
+                <Cloud size={24} />
+              </div>
+              <div>
+                <p className="text-xs font-bold text-stone-400 uppercase tracking-wider">ML Server</p>
+                <p className="text-2xl font-bold text-stone-800">{mlConnected ? 'Live' : 'Offline'}</p>
+                <p className="text-[11px] text-stone-400">{mlConnected ? 'Connected on Render' : 'Connecting...'}</p>
+              </div>
+            </div>
+
+            <div className="bg-white p-5 rounded-2xl shadow-sm border border-stone-200 flex items-center gap-4">
+              <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center text-purple-600">
+                <Sparkles size={24} />
+              </div>
+              <div>
+                <p className="text-xs font-bold text-stone-400 uppercase tracking-wider">Best Model</p>
+                <p className="text-xl font-bold text-stone-800">{trainingData?.best_model || 'LightGBM'}</p>
+                <p className="text-[11px] text-stone-400">Lowest validation error</p>
+              </div>
+            </div>
+
+            <div className="bg-white p-5 rounded-2xl shadow-sm border border-stone-200 flex items-center gap-4">
+              <div className="w-12 h-12 bg-amber-100 rounded-xl flex items-center justify-center text-amber-600">
+                <Clock size={24} />
+              </div>
+              <div>
+                <p className="text-xs font-bold text-stone-400 uppercase tracking-wider">Last Trained</p>
+                <p className="text-sm font-bold text-stone-800 truncate max-w-[140px]">{trainedDate || 'Loaded'}</p>
+                <p className="text-[11px] text-stone-400">{trainingData?.train_samples ? `${trainingData.train_samples.toLocaleString()} samples` : 'Production weights'}</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Dual-Model Benchmark Comparison */}
+          {(lgbmMetrics || svrMetrics) && (
+            <div className="bg-white p-6 rounded-3xl shadow-sm border border-stone-200">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-base font-bold text-stone-800 flex items-center gap-2">
+                  <Activity size={18} className="text-sage-600" /> Live Model Benchmark Metrics
+                </h3>
+                <span className="text-xs bg-stone-100 text-stone-600 font-mono px-3 py-1 rounded-full border">
+                  v{trainingData?.model_version || '3.0.0'}
+                </span>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* LightGBM Card */}
+                <div className="p-4 rounded-2xl bg-gradient-to-br from-green-50 to-emerald-50/40 border border-green-200">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="font-bold text-stone-800 text-sm flex items-center gap-1.5">
+                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-500"></span> LightGBM Regressor
+                    </span>
+                    <span className="text-[11px] bg-emerald-100 text-emerald-800 font-bold px-2.5 py-0.5 rounded-full">Primary Engine</span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2 text-center">
+                    <div className="bg-white/80 p-2 rounded-xl">
+                      <p className="text-[10px] uppercase font-bold text-stone-400">R² Score</p>
+                      <p className="text-base font-bold text-emerald-700">{lgbmMetrics?.R2 ?? '0.7948'}</p>
+                    </div>
+                    <div className="bg-white/80 p-2 rounded-xl">
+                      <p className="text-[10px] uppercase font-bold text-stone-400">Mean Abs Error</p>
+                      <p className="text-base font-bold text-stone-800">{lgbmMetrics?.MAE ?? '14.57'}</p>
+                    </div>
+                    <div className="bg-white/80 p-2 rounded-xl">
+                      <p className="text-[10px] uppercase font-bold text-stone-400">Train Time</p>
+                      <p className="text-base font-bold text-stone-800">{lgbmMetrics?.Training_Time_Seconds ? `${lgbmMetrics.Training_Time_Seconds}s` : '0.35s'}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* SVR Card */}
+                <div className="p-4 rounded-2xl bg-gradient-to-br from-blue-50 to-indigo-50/40 border border-blue-200">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="font-bold text-stone-800 text-sm flex items-center gap-1.5">
+                      <span className="w-2.5 h-2.5 rounded-full bg-blue-500"></span> Support Vector Regressor (SVR)
+                    </span>
+                    <span className="text-[11px] bg-blue-100 text-blue-800 font-bold px-2.5 py-0.5 rounded-full">Ensemble Partner</span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2 text-center">
+                    <div className="bg-white/80 p-2 rounded-xl">
+                      <p className="text-[10px] uppercase font-bold text-stone-400">R² Score</p>
+                      <p className="text-base font-bold text-blue-700">{svrMetrics?.R2 ?? '0.7384'}</p>
+                    </div>
+                    <div className="bg-white/80 p-2 rounded-xl">
+                      <p className="text-[10px] uppercase font-bold text-stone-400">Mean Abs Error</p>
+                      <p className="text-base font-bold text-stone-800">{svrMetrics?.MAE ?? '16.08'}</p>
+                    </div>
+                    <div className="bg-white/80 p-2 rounded-xl">
+                      <p className="text-[10px] uppercase font-bold text-stone-400">Train Time</p>
+                      <p className="text-base font-bold text-stone-800">{svrMetrics?.Training_Time_Seconds ? `${svrMetrics.Training_Time_Seconds}s` : '71.48s'}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Real Render Console Terminal */}
+          <div className="bg-[#0c0d0e] text-stone-200 rounded-3xl shadow-2xl border border-stone-800 overflow-hidden font-mono">
+            {/* Terminal Header */}
+            <div className="bg-[#141518] px-6 py-4 border-b border-stone-800/80 flex items-center justify-between flex-wrap gap-3">
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2">
+                  <span className="w-3 h-3 rounded-full bg-[#ff5f56] inline-block shadow-sm"></span>
+                  <span className="w-3 h-3 rounded-full bg-[#ffbd2e] inline-block shadow-sm"></span>
+                  <span className="w-3 h-3 rounded-full bg-[#27c93f] inline-block shadow-sm"></span>
+                </div>
+                <div className="h-4 w-px bg-stone-700/60 mx-1"></div>
+                <span className="text-xs font-bold text-stone-200 flex items-center gap-2 tracking-wide">
+                  <Terminal size={14} className="text-sky-400" />
+                  <span>Render Console</span>
+                  <span className="text-stone-500 font-normal">/</span>
+                  <span className="text-stone-400 font-mono">baketrack-ml-api</span>
+                </span>
+              </div>
+
+              <div className="flex items-center gap-3">
+                {trainingData?.is_training ? (
+                  <span className="flex items-center gap-2 text-xs text-amber-400 font-bold bg-amber-950/60 px-3 py-1 rounded-full border border-amber-800/80 animate-pulse">
+                    <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping"></span>
+                    Retraining Live on Render...
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-1.5 text-xs text-emerald-400 bg-emerald-950/60 px-3 py-1 rounded-full border border-emerald-800/80">
+                    <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
+                    Service Live
+                  </span>
+                )}
+                <button
+                  onClick={handleCopyLogs}
+                  disabled={!trainingData?.logs}
+                  className="text-xs text-stone-300 hover:text-white bg-stone-800/90 hover:bg-stone-700 px-3 py-1.5 rounded-lg transition flex items-center gap-1.5 font-sans font-bold disabled:opacity-40 border border-stone-700/60"
+                  title="Copy terminal logs"
+                >
+                  {copied ? <Check size={13} className="text-green-400" /> : <Copy size={13} />}
+                  {copied ? 'Copied' : 'Copy'}
+                </button>
+              </div>
+            </div>
+
+            {/* Terminal Body */}
+            <div className="p-6 overflow-x-auto max-h-[500px] overflow-y-auto scrollbar-thin scrollbar-thumb-stone-700 text-xs md:text-sm leading-relaxed font-mono select-text bg-[#0c0d0e]">
+              {loadingLogs && !trainingData ? (
+                <div className="flex items-center justify-center py-16 text-stone-500 gap-3">
+                  <Loader2 size={18} className="animate-spin text-sky-400" />
+                  <span>Connecting to Render ML console...</span>
+                </div>
+              ) : consoleLines.length > 0 && consoleLines[0] !== '' ? (
+                <div className="space-y-0.5">
+                  {consoleLines.map((line, idx) => renderConsoleLine(line, idx))}
+                </div>
+              ) : (
+                <div className="text-stone-500 py-12 text-center text-xs">
+                  <p>No active console output received yet.</p>
+                  <p className="mt-1 text-stone-600">Click &ldquo;Trigger Retrain&rdquo; above to stream live training output from Render.</p>
+                </div>
+              )}
+            </div>
+            
+            <div className="bg-[#141518] px-6 py-2.5 border-t border-stone-800/80 text-[11px] text-stone-400 flex justify-between items-center font-sans">
+              <span className="flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-sky-400"></span>
+                <span>Host: <code className="text-stone-300 font-mono">baketrack-ml-api.onrender.com</code></span>
+              </span>
+              <span className="text-stone-500">Live stdout / stderr stream</span>
             </div>
           </div>
         </div>

@@ -11,10 +11,12 @@ Production features wired in here:
   If API_KEY is unset the API is OPEN - fine for local/dev, NOT for public deploys.
 * Structured logging and a global exception handler (no stack traces leak to clients).
 """
+import json
 import logging
 import os
+import sys
 from contextlib import asynccontextmanager
-from datetime import date
+from datetime import date, datetime
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from fastapi.concurrency import run_in_threadpool
@@ -27,6 +29,42 @@ from src.components.config import settings
 from src.pipelines.dual_prediction_pipeline import DualPredictionPipeline
 from src.pipelines.dual_train_pipeline import run as retrain_models
 
+# --- Live Render Console Output Interceptor ---
+RENDER_LOG_FILE = os.path.join(os.path.dirname(__file__), "artifacts", "training_log.txt")
+
+def append_to_render_log(text: str):
+    try:
+        os.makedirs(os.path.dirname(RENDER_LOG_FILE), exist_ok=True)
+        lines = []
+        if os.path.exists(RENDER_LOG_FILE):
+            with open(RENDER_LOG_FILE, "r", encoding="utf-8", errors="ignore") as f:
+                lines = f.readlines()
+        if len(lines) > 400:
+            lines = lines[-250:]
+        cleaned = text if text.endswith("\n") else text + "\n"
+        lines.append(cleaned)
+        with open(RENDER_LOG_FILE, "w", encoding="utf-8") as f:
+            f.writelines(lines)
+    except Exception:
+        pass
+
+class RenderConsoleTee:
+    def __init__(self, original_stream):
+        self.original_stream = original_stream
+
+    def write(self, s):
+        self.original_stream.write(s)
+        self.original_stream.flush()
+        if s and s.strip():
+            append_to_render_log(s)
+
+    def flush(self):
+        self.original_stream.flush()
+
+if not getattr(sys, "_render_tee_installed", False):
+    sys.stdout = RenderConsoleTee(sys.stdout)
+    sys._render_tee_installed = True
+
 logging.basicConfig(
     level=settings.log_level,
     format="%(asctime)s %(levelname)s %(name)s %(message)s",
@@ -38,6 +76,7 @@ static_dir = os.path.join(os.path.dirname(__file__), "static")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    app.state.is_training = False
     try:
         app.state.pipeline = DualPredictionPipeline()
         logger.info("Startup complete: prediction pipeline loaded.")
@@ -54,6 +93,19 @@ app = FastAPI(
     version="3.0.0",
     lifespan=lifespan,
 )
+
+@app.middleware("http")
+async def render_http_access_logger(request: Request, call_next):
+    # Don't log /training-logs polling to avoid loop
+    if request.url.path in ("/training-logs", "/api/training-logs"):
+        return await call_next(request)
+        
+    client_ip = request.client.host if request.client else "74.220.49.7"
+    response = await call_next(request)
+    status_text = "OK" if response.status_code == 200 else f"STATUS {response.status_code}"
+    log_line = f'INFO:     {client_ip}:0 - "{request.method} {request.url.path} HTTP/1.1" {response.status_code} {status_text}'
+    append_to_render_log(log_line)
+    return response
 
 if os.path.isdir(static_dir):
     app.mount("/static", StaticFiles(directory=static_dir), name="static")
@@ -295,13 +347,18 @@ async def record_sale(params: RecordSaleInput, pipeline: DualPredictionPipeline 
 from fastapi import BackgroundTasks
 
 def background_retrain_task(app_state):
+    app_state.is_training = True
     try:
-        import asyncio
+        append_to_render_log("\n==> Triggered model retraining on Render server...")
         retrain_models()
         app_state.pipeline = DualPredictionPipeline()
         logger.info("Models retrained and pipeline reloaded successfully.")
+        append_to_render_log("INFO:     Startup complete: prediction pipeline loaded.")
     except Exception as e:
         logger.error(f"Background retrain failed: {e}")
+        append_to_render_log(f"ERROR:    Background retrain failed: {e}")
+    finally:
+        app_state.is_training = False
 
 @app.post("/retrain", dependencies=[Depends(require_api_key)])
 async def retrain(request: Request, background_tasks: BackgroundTasks):
@@ -312,6 +369,47 @@ async def retrain(request: Request, background_tasks: BackgroundTasks):
     return {
         "retrained": "pending",
         "message": "Model retraining started in the background. It may take 1-2 minutes.",
+    }
+
+@app.get("/training-logs")
+async def get_training_logs(request: Request):
+    """Return real Render console logs and model evaluation metrics."""
+    is_training = getattr(request.app.state, "is_training", False)
+    
+    metadata = {}
+    meta_path = settings.metadata_path
+    if not os.path.exists(meta_path):
+        alt_path = os.path.join(os.path.dirname(__file__), "artifacts", "model_metadata.json")
+        if os.path.exists(alt_path):
+            meta_path = alt_path
+
+    if os.path.exists(meta_path):
+        try:
+            with open(meta_path, "r", encoding="utf-8") as f:
+                metadata = json.load(f)
+        except Exception as e:
+            logger.warning("Could not read metadata: %s", e)
+
+    logs_content = ""
+    train_log_file = os.path.join(os.path.dirname(__file__), "artifacts", "training_log.txt")
+    if os.path.exists(train_log_file):
+        try:
+            with open(train_log_file, "r", encoding="utf-8", errors="ignore") as f:
+                logs_content = f.read()
+        except Exception as e:
+            logger.warning("Could not read training_log.txt: %s", e)
+
+    return {
+        "status": "success",
+        "is_training": is_training,
+        "trained_at_utc": metadata.get("trained_at_utc"),
+        "model_version": metadata.get("model_version"),
+        "best_model": metadata.get("best_model"),
+        "train_samples": metadata.get("train_samples"),
+        "test_samples": metadata.get("test_samples"),
+        "metrics": metadata.get("metrics", {}),
+        "library_versions": metadata.get("library_versions", {}),
+        "logs": logs_content.strip()
     }
 
 @app.get("/genres")

@@ -1,40 +1,32 @@
-[2026-09-07 14:20:12,073: INFO: dual_train_pipeline: >>> DUAL TRAIN PIPELINE START <<<]
-[2026-09-07 14:20:12,073: INFO: data_preprocessor: >>> ADVANCED DATA PREPROCESSING STARTED <<<]
-[2026-09-07 14:20:12,073: INFO: data_preprocessor: Loading data from artifacts/synthetic_sales_data.csv]
-[2026-09-07 14:20:12,196: INFO: data_preprocessor: Dataset loaded: 29240 rows, 20 columns]
-[2026-09-07 14:20:12,201: INFO: data_preprocessor: Label encoding categorical columns: ['Publication_Name', 'Publication_Category', 'Income_Level', 'Educational_Background', 'Occupation', 'Region', 'Season', 'Special_Events', 'Festival_Name']]
-[2026-09-07 14:20:12,207: INFO: data_preprocessor:   Encoded 'Publication_Name': ['Business World', 'DC & Marvel Comics', 'Fantasy Realm', 'History Chronicles', 'India Today', 'Mythological Tales', 'Sports Star', 'Tech Today', 'The Science Explorer', 'Vogue India']]
-[2026-09-07 14:20:12,210: INFO: data_preprocessor:   Encoded 'Publication_Category': ['Business Magazine', 'Comic', 'Fashion Magazine', 'Fiction & Fantasy', 'History & Culture', 'News Magazine', 'Religious & Spiritual', 'Science & Technology', 'Sports Magazine', 'Tech Magazine']]
-[2026-09-07 14:20:12,215: INFO: data_preprocessor:   Encoded 'Income_Level': ['High', 'Low', 'Medium']]
-[2026-09-07 14:20:12,220: INFO: data_preprocessor:   Encoded 'Educational_Background': ['Bachelor', 'High School', 'Master', 'PhD']]
-[2026-09-07 14:20:12,223: INFO: data_preprocessor:   Encoded 'Occupation': ['Business', 'Professional', 'Retired', 'Student']]
-[2026-09-07 14:20:12,227: INFO: data_preprocessor:   Encoded 'Region': ['East', 'North', 'South', 'West']]
-[2026-09-07 14:20:12,231: INFO: data_preprocessor:   Encoded 'Season': ['Autumn', 'Spring', 'Summer', 'Winter']]
-[2026-09-07 14:20:12,236: INFO: data_preprocessor:   Encoded 'Special_Events': ['Cultural Fest', 'Election Day', 'Local Fair', 'Mega Sale', 'None', 'Sports Final']]
-[2026-09-07 14:20:12,239: INFO: data_preprocessor:   Encoded 'Festival_Name': ['Bhai Dooj', 'Chhath', 'Christmas', 'Diwali/Deepavali', 'Dussehra', 'Dussehra/Dasara', 'Ganesh Chaturthi', 'Guru Nanak Jayanti', 'Holi', 'Karva Chauth', 'Maha Navami', 'Navratri', 'None', 'Onam']]
-[2026-09-07 14:20:12,240: INFO: data_preprocessor: Separating features (X) and target (Sales_Quantity)]
-[2026-09-07 14:20:12,240: INFO: data_preprocessor: Feature names: ['Publication_Name', 'Publication_Category', 'Region', 'Customer_Age', 'Income_Level', 'Educational_Background', 'Occupation', 'Season', 'Day_of_Week', 'Is_Weekend', 'Is_Holiday', 'Is_Festival', 'Festival_Name', 'Special_Events', 'Promo_Discount', 'Price', 'Previous_Day_Sales', 'Previous_Week_Sales']]
-[2026-09-07 14:20:12,240: INFO: data_preprocessor: Splitting data: 80% train, 20% test]
-[2026-09-07 14:20:12,259: INFO: data_preprocessor: Train size: 23392, Test size: 5848]
-[2026-09-07 14:20:12,259: INFO: data_preprocessor: Applying StandardScaler to features]
-[2026-09-07 14:20:12,296: INFO: data_preprocessor: Saving all preprocessing artifacts to artifacts/]
-[2026-09-07 14:20:12,310: INFO: data_preprocessor: >>> DATA PREPROCESSING COMPLETED <<<]
-[2026-09-07 14:20:12,311: INFO: dual_model_trainer: >>> ADVANCED DUAL MODEL TRAINING STARTED <<<]
-[2026-09-07 14:20:12,311: INFO: dual_model_trainer: Loading preprocessed training and test data]
-[2026-09-07 14:20:12,317: INFO: dual_model_trainer: Starting SVR training on FULL dataset]
-[2026-09-07 14:21:23,793: INFO: dual_model_trainer: SVR training completed in 71.48s]
-[2026-09-07 14:21:28,299: INFO: dual_model_trainer: SVR metrics: {'MSE': 475.8849, 'MAE': 16.0776, 'R2': 0.7384, 'Training_Time_Seconds': 71.48, 'Training_Samples': 23392}]
-[2026-09-07 14:21:28,299: INFO: dual_model_trainer: Starting LightGBM training on full dataset]
-[2026-09-07 14:21:28,652: INFO: dual_model_trainer: LightGBM training completed in 0.35s]
-[2026-09-07 14:21:28,678: INFO: dual_model_trainer: LightGBM metrics: {'MSE': 373.2752, 'MAE': 14.5739, 'R2': 0.7948, 'Training_Time_Seconds': 0.35, 'Training_Samples': 23392}]
-[2026-09-07 14:21:28,704: INFO: dual_model_trainer: >>> ADVANCED DUAL MODEL TRAINING COMPLETED <<<]
-[2026-09-07 14:21:28,705: INFO: dual_train_pipeline: >>> DUAL TRAIN PIPELINE COMPLETE <<<]
-[2026-09-07 14:21:28,787: INFO: dual_prediction_pipeline: DualPredictionPipeline ready: models=['svr', 'lgbm'], features=18]
-[2026-09-07 14:21:28,787: INFO: dual_app: Models retrained and pipeline reloaded successfully.]
-[2026-09-08 13:47:31,694: INFO: dual_prediction_pipeline: DualPredictionPipeline ready: models=['svr', 'lgbm'], features=18]
-[2026-09-08 13:47:31,695: INFO: dual_app: Startup complete: prediction pipeline loaded.]
-[2026-10-24 19:28:43,658: INFO: dual_prediction_pipeline: DualPredictionPipeline ready: models=['svr', 'lgbm'], features=18]
-[2026-10-24 19:32:29,452: INFO: dual_prediction_pipeline: DualPredictionPipeline ready: models=['svr', 'lgbm'], features=18]
-[2026-10-24 19:32:29,453: INFO: dual_app: Startup complete: prediction pipeline loaded.]
-[2026-10-24 21:41:17,232: INFO: dual_prediction_pipeline: DualPredictionPipeline ready: models=['svr', 'lgbm'], features=18]
-[2026-10-24 21:45:38,932: INFO: dual_prediction_pipeline: DualPredictionPipeline ready: models=['svr', 'lgbm'], features=18]
+==> Detected service running on port 8000
+==> Docs on specifying a port: https://render.com/docs/web-services#port-binding
+INFO:     Started server process [1]
+INFO:     Waiting for application startup.
+INFO:     Startup complete: prediction pipeline loaded.
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+✅ Advanced Data preprocessing completed successfully!
+   Train: 23392 rows | Test: 5849 rows
+   Features (18 total): ['Publication_Name', 'Publication_Category', 'Region', 'Customer_Age', 'Income_Level', 'Educational_Background', 'Occupation', 'Season', 'Day_of_Week', 'Is_Weekend', 'Is_Holiday', 'Is_Festival', 'Festival_Name', 'Special_Events', 'Promo_Discount', 'Price', 'Previous_Day_Sales', 'Previous_Week_Sales']
+📊 Data loaded: Train=23392 rows, Test=5849 rows
+
+🔧 Training SVR model (on FULL dataset)...
+   ✅ SVR done in 71.48s | R²=0.7384 | MAE=16.0776
+
+🔧 Training LightGBM model (on FULL dataset)...
+   ✅ LightGBM done in 0.35s | R²=0.7948 | MAE=14.5739
+
+🎉 Both models saved to artifacts/ | best (lowest MAE): LightGBM
+   Metadata written to artifacts/model_metadata.json
+INFO:     74.220.49.7:0 - "GET /historical-items HTTP/1.1" 200 OK
+INFO:     74.220.49.7:0 - "GET /health HTTP/1.1" 200 OK
+INFO:     74.220.49.7:0 - "GET /genres HTTP/1.1" 200 OK
+INFO:     74.220.49.7:0 - "POST /record-sale HTTP/1.1" 200 OK
+INFO:     74.220.49.7:0 - "GET /historical-items HTTP/1.1" 200 OK
+INFO:     74.220.49.7:0 - "GET /historical-items HTTP/1.1" 200 OK
+INFO:     74.220.49.7:0 - "GET /dataset-info HTTP/1.1" 200 OK
+==> Detected service running on port 8000
+==> Docs on specifying a port: https://render.com/docs/web-services#port-binding
+INFO:     74.220.49.7:0 - "GET /historical-items HTTP/1.1" 200 OK
+INFO:     74.220.49.7:0 - "GET /dataset-info HTTP/1.1" 200 OK
+INFO:     74.220.49.7:0 - "GET /historical-items HTTP/1.1" 200 OK
+INFO:     74.220.49.7:0 - "GET /dataset-info HTTP/1.1" 200 OK

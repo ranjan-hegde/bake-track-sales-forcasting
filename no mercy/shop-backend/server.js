@@ -178,7 +178,7 @@ app.get('/api/forecast/:itemName', async (req, res) => {
 // 10. ML HEALTH: Check if ML API is running
 app.get('/api/ml-health', async (req, res) => {
   try {
-    const response = await axios.get(`${ML_API_URL}/health`, { timeout: 5000 });
+    const response = await axios.get(`${ML_API_URL}/health`, { timeout: 25000 });
     res.json({ ml_status: 'connected', ...response.data });
   } catch (e) {
     res.json({ ml_status: 'disconnected', message: 'ML API is not reachable' });
@@ -198,7 +198,7 @@ app.post('/api/retrain', async (req, res) => {
 // 12. ML: Get Genres
 app.get('/api/genres', async (req, res) => {
   try {
-    const response = await axios.get(`${ML_API_URL}/genres`, { timeout: 5000 });
+    const response = await axios.get(`${ML_API_URL}/genres`, { timeout: 20000 });
     res.json(response.data);
   } catch (e) {
     res.status(500).json({ message: 'Failed to fetch genres', error: e.message });
@@ -242,7 +242,7 @@ app.post('/api/promotions', async (req, res) => {
 // 15. DATASET: Get row count
 app.get('/api/dataset-info', async (req, res) => {
   try {
-    const response = await axios.get(`${ML_API_URL}/dataset-info`, { timeout: 5000 });
+    const response = await axios.get(`${ML_API_URL}/dataset-info`, { timeout: 20000 });
     res.json(response.data);
   } catch (e) {
     res.status(500).json({ message: 'Failed to fetch dataset info', error: e.message });
@@ -252,14 +252,29 @@ app.get('/api/dataset-info', async (req, res) => {
 // 16. DATASET: Get historical items from CSV
 app.get('/api/historical-items', async (req, res) => {
   try {
-    const response = await axios.get(`${ML_API_URL}/historical-items`, { timeout: 5000 });
+    const response = await axios.get(`${ML_API_URL}/historical-items`, { timeout: 20000 });
     res.json(response.data);
   } catch (e) {
     res.status(500).json({ message: 'Failed to fetch historical items', error: e.message });
   }
 });
 
-// 17. ORDERS: Record POS Sale
+// 17. ML: Get Real Training Logs & Render Console Stream
+app.get('/api/training-logs', async (req, res) => {
+  try {
+    const response = await axios.get(`${ML_API_URL}/training-logs`, { timeout: 25000 });
+    res.json(response.data);
+  } catch (e) {
+    res.status(500).json({ 
+      status: 'error',
+      message: 'Failed to fetch training logs from ML API', 
+      error: e.message,
+      is_training: false 
+    });
+  }
+});
+
+// 18. ORDERS: Record POS Sale
 app.post('/api/pos-sale', async (req, res) => {
   try {
     const payload = req.body;
